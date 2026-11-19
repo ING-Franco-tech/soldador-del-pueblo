@@ -52,10 +52,37 @@ export function consumableGroups(mission, pid) {
   ] }];
 }
 
-export function speedWindow(mission, pid, params) {
+export function speedWindow(mission, pid, params, pos) {
   const fam = familyOf(pid);
   if (fam === 'EBW' || fam === 'AUTO') { const v = params?.v ?? 10; return [v * 0.97, v * 1.03]; }
-  return mission.exec.speed?.[fam] || [3, 5];
+  const w = mission.exec.speed?.[fam] || [3, 5]; const k = pos?.speedMul || 1;
+  return [w[0] * k, w[1] * k];
+}
+
+// ---------------------------------------------------------------------
+export function scoreCalc(mission, answers) {
+  const qs = mission.questions || []; if (!qs.length) return { score: 100, notes: [] };
+  let ok = 0; const notes = [];
+  qs.forEach((q, i) => { const a = answers[i]; const good = a === q.answer; if (good) ok++;
+    notes.push({ good, text: `${q.q.split('?')[0]}? → ${good ? 'Correcto' : `Respuesta correcta: ${q.options[q.answer]}`}. ${q.explain}` }); });
+  return { score: 100 * ok / qs.length, notes };
+}
+
+export function scoreDesign(mission, pos, bevel) {
+  const notes = []; const d = mission.design || {}; let sum = 0, n = 0;
+  if (d.positions?.length) {
+    const best = d.positions.reduce((a, b) => (b.score > a.score ? b : a));
+    sum += pos?.score ?? 0; n++;
+    notes.push({ good: (pos?.score ?? 0) >= 80, text: `Posición ${pos?.name || '—'}: ${pos?.why || ''}` });
+    if (pos && pos.score < 100) notes.push({ good: true, text: `Mejor: ${best.name}. ${best.why}` });
+  }
+  if (d.bevels?.length) {
+    const best = d.bevels.reduce((a, b) => (b.score > a.score ? b : a));
+    sum += bevel?.score ?? 0; n++;
+    notes.push({ good: (bevel?.score ?? 0) >= 80, text: `Preparación de bordes: ${bevel?.name || '—'}. ${bevel?.why || ''}` });
+    if (bevel && bevel.score < 100) notes.push({ good: true, text: `Mejor: ${best.name}. ${best.why}` });
+  }
+  return { score: n ? sum / n : 100, notes };
 }
 
 // ---------------------------------------------------------------------
@@ -160,6 +187,7 @@ function paramIssues(mission, pid, params, ctx) {
       else if (idx === 2) list.push({ type: 'oxidacion', label: 'Ligera coloración paja', location: 'superficial', sev: 0.15 });
       continue;
     }
+    if (d.options && w.bad && w.bad[v]) { list.push({ ...w.bad[v] }); continue; }
     if (d.options || !d.issues) continue;
     const ok = w.ok?.length ? w.ok : w.ideal;
     if (v < ok[0] && d.issues.low) list.push({ ...d.issues.low, sev: clamp((ok[0] - v) / (ok[1] - ok[0] + 1e-6) + 0.35, 0.3, 1) });
@@ -182,7 +210,7 @@ export function buildResult(st) {
   const N = 60;
   const rand = rng(mission.id + pid + JSON.stringify(params) + (execs?.length || 0));
   const pHeat = paramHeat(mission, pid, params, ctx);
-  const sw = speedWindow(mission, pid, params);
+  const sw = speedWindow(mission, pid, params, st.pos);
   const vMid = mid(sw);
   const [w0, r0] = BEAD[mission.id] || [8, 1.5];
   const tol = mission.exec.lateralTol;
@@ -266,9 +294,11 @@ export function buildResult(st) {
       add(d.type, c - len / 2, c + len / 2, (d.sev ?? 0.6) * (0.75 + rand() * 0.35), d.location || 'interna', d.label);
     }
   };
+  const log = st.incidentLog || [];
+  const fixed = new Set(log.filter(l => l.ok && l.fixPrep).map(l => l.fixPrep));
   for (const it of mission.prep) {
     const did = prepDone.has(it.id);
-    if (!did && prepRequired(it, ctx) && it.missing && !it.effect) scatter(it.missing, it.missing.type === 'deformacion' ? 1 : 2);
+    if (!did && prepRequired(it, ctx) && it.missing && !it.effect && !fixed.has(it.id)) scatter(it.missing, it.missing.type === 'deformacion' ? 1 : 2);
     if (did && it.kind === 'harmful' && it.defect) scatter(it.defect, 2);
   }
   for (const g of consumableGroups(mission, pid)) {
@@ -279,6 +309,14 @@ export function buildResult(st) {
   for (const f of proc.forced || []) scatter(f, 2);
   if (proc.score < 30 && !(proc.forced || []).length) scatter({ type: 'falta_fusion', label: 'Proceso inadecuado para la pieza', location: 'interna', sev: 0.7 }, 2);
   for (const iss of paramIssues(mission, pid, params, ctx)) scatter(iss, iss.type === 'oxidacion' ? 1 : 2);
+  if (st.bevel?.defect) scatter(st.bevel.defect, 2);
+  if (st.pos && st.pos.score < 30) scatter({ type: 'falta_fusion', label: `Posición inadecuada (${st.pos.id})`, location: 'interna', sev: 0.5 }, 2);
+  for (const l of log) {
+    const d = l.defect; if (!d) continue;
+    if (!l.ok) add(d.type, l.at, Math.min(1, l.at + 0.35), d.sev, d.location, d.label);
+    else if (l.partial) add(d.type, l.at, Math.min(1, l.at + 0.12), d.sev * 0.5, d.location, d.label);
+    else if (l.fixPrep && l.at > 0.05) add(d.type, 0, l.at, d.sev * 0.6, d.location, d.label);
+  }
 
   // EBW: rampa de salida y cupón
   const last = execs[execs.length - 1];
@@ -362,6 +400,11 @@ export function scoreExec(mission, result, execs) {
   if (last.slope === 'none') { score -= 15; notes.push({ good: false, text: 'No hiciste la rampa de salida: el keyhole colapsó dejando un cráter.' }); }
   if (last.slope === 'early') { score -= 15; notes.push({ good: false, text: 'Rampa de salida demasiado pronto: la circunferencia no quedó cerrada.' }); }
   if (last.endCrater) notes.push({ good: false, text: 'No rellenaste el cráter final (mantén la antorcha un instante al terminar).' });
+  for (const l of execs.incidentLog || []) {
+    if (l.ok && !l.partial) notes.push({ good: true, text: `Incidente "${l.title}": bien resuelto. ${l.why}` });
+    else if (l.ok) { score -= 5; notes.push({ good: true, text: `Incidente "${l.title}": solución parcial. ${l.why}` }); }
+    else { score -= 20; notes.push({ good: false, text: `Incidente "${l.title}": mal resuelto. ${l.why}` }); }
+  }
   if (last.interpassViol) { score -= 10; notes.push({ good: false, text: 'Iniciaste una pasada con la pieza por encima de 250 °C.' }); }
   const execDefects = result.defects.filter(d => execTypes.includes(d.type)).length;
   if (!execDefects) notes.push({ good: true, text: 'Ejecución limpia: sin defectos atribuibles a la técnica.' });
