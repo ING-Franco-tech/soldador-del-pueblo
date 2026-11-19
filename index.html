@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Soldador del Pueblo</title>
+  <meta name="description" content="Juego 3D de soldadura: diagnostica, elige el proceso (TIG, MIG, electrodo, EBW…), prepara, suelda e inspecciona.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+  } }
+  </script>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div id="hud"></div>
+  <div id="ui"></div>
+  <div id="loading"><div class="spark"></div><p>Encendiendo el taller…</p></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
