@@ -10,6 +10,7 @@ import { INSPECTION_METHODS, detect, renderInspection } from './inspection.js';
 import { MATERIALS, MATERIAL_TESTS, PROCESSES, MISSIONS, STAGES, DEFECT_NAMES, STANDOFF, CREDITS } from './data.js';
 import * as S from './sim.js';
 import { Execution } from './exec.js';
+import { VocabGame } from './vocab.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const ui = $('#ui'), hud = $('#hud'), canvas = $('#gl');
@@ -48,10 +49,12 @@ function showTitle() {
     <h1>Soldador<span>del Pueblo</span></h1>
     <p>Siete casos reales de taller: identifica el metal, resuelve el análisis técnico, escoge proceso, consumibles, bisel y posición, prepara la junta, ajusta la máquina, suelda resolviendo los problemas que aparezcan y demuestra con ensayos que tu trabajo es seguro.</p>
     <div class="row"><button class="btn primary" id="play">${save.unlocked > 1 ? 'Continuar' : 'Empezar'}</button>
+    <button class="btn" id="vocabBtn">🔥 Inglés de soldadura</button>
     ${save.unlocked > 1 ? '<button class="btn ghost" id="reset">Nueva partida</button>' : ''}</div>
     <small>Recomendado: auriculares y pantalla completa (F11)</small>
     <div class="credits">${esc(CREDITS)}</div></div>`;
   $('#play').onclick = async () => { await audio.resume?.(); A('play', 'ok'); showMap(); };
+  $('#vocabBtn').onclick = async () => { await audio.resume?.(); openVocab(); };
   const r = $('#reset'); if (r) r.onclick = () => { if (confirm('¿Borrar el progreso y empezar de nuevo?')) { save = { unlocked: 1, stars: {}, best: {}, coins: 0, voices: save.voices }; persist(); showTitle(); } };
 }
 
@@ -69,7 +72,7 @@ function showMap() {
   hud.classList.remove('on'); voices.stop?.(); world.clearLabels();
   const shown = MISSIONS[Math.min(save.unlocked, MISSIONS.length) - 1];
   setScene(shown); world.controls.autoRotate = true;
-  ui.innerHTML = `<div class="map"><header><h2>El pueblo · Encargos</h2><div class="wallet">🪙 ${save.coins.toLocaleString('es')} monedas</div></header>
+  ui.innerHTML = `<div class="map"><header><h2>El pueblo · Encargos</h2><button class="btn" id="vocabBtn">🔥 Inglés de soldadura</button><div class="wallet">🪙 ${save.coins.toLocaleString('es')} monedas</div></header>
     <div class="cards">${MISSIONS.map(m => {
       const locked = m.n > save.unlocked; const stv = save.stars[m.id] || 0;
       return `<div class="card ${locked ? 'locked' : ''}" data-id="${m.id}">
@@ -78,10 +81,18 @@ function showMap() {
         <div class="who"><span class="av">${m.client.avatar}</span><div><b>${esc(m.client.name)}</b><br><span class="place">${esc(m.client.role)}</span></div></div>
         <div class="stars">${'★'.repeat(stv)}${'☆'.repeat(3 - stv)}</div></div>`;
     }).join('')}</div><div class="credits">${esc(CREDITS)}</div></div>`;
+  $('#vocabBtn').onclick = () => openVocab();
   ui.querySelectorAll('.card').forEach(c => {
     c.onmouseenter = () => { const m = MISSIONS.find(x => x.id === c.dataset.id); if (m.n <= save.unlocked) { setScene(m); world.controls.autoRotate = true; } };
     c.onclick = () => { const m = MISSIONS.find(x => x.id === c.dataset.id); if (m.n > save.unlocked) { A('play', 'error'); toast('Completa el caso anterior para desbloquearlo'); return; } A('play', 'click'); startMission(m); };
   });
+}
+
+// ============================================================ VOCABULARIO
+function openVocab() {
+  A('play', 'ok'); voices.stop?.(); ui.innerHTML = ''; topbar.style.display = 'none';
+  world.renderer.setAnimationLoop(null);
+  new VocabGame({ audio, onExit: () => { topbar.style.display = ''; world.clock.getDelta(); world.renderer.setAnimationLoop(() => world._loop()); showMap(); } }).menu();
 }
 
 // ============================================================ MISIÓN

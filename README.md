@@ -32,6 +32,16 @@ En cada caso se evalúa todo el proceso, como en un taller real:
 6. **El tanque de gas propano**: recipiente ASME que contuvo GLP. Desgasificar, inertizar, medir LEL, permiso de trabajo en caliente, reparar la grieta y hacer la prueba hidrostática.
 7. **El motor del avión**: Ti-6Al-4V de 12 mm con **EBW** en cámara de vacío.
 
+## 🔥 Corta el tubo: inglés de soldadura
+
+Minijuego para aprender 100 términos técnicos en inglés (procesos, equipos, juntas, partes del cordón, defectos, variables, inspección y posiciones):
+
+- Los términos bajan dentro de tubos de acero. Mueve el soplete con el ratón y **haz clic sobre el tubo correcto** (o usa las teclas **1-4**) antes de que llegue abajo.
+- Si cortas el tubo que no es, se quema, pierdes una vida y te muestra qué significaba ese término.
+- Hay combos, niveles que aceleran la caída, récord y una lista de repaso al final, con pronunciación en inglés.
+- Dos modos: **Español → Inglés** e **Inglés → Español 🔊** (oyes la palabra y buscas la traducción). También puedes filtrar por tema.
+- **Glosario**: tarjetas que se voltean, con búsqueda, filtro por tema y botón para oír la pronunciación.
+
 ## Controles al soldar
 
 - La antorcha sigue la junta sola.
